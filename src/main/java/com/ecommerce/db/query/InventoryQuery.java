@@ -10,20 +10,30 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.CriteriaDefinition;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import com.ecommerce.db.model.Inventory;
+import com.mongodb.WriteResult;
+import com.mongodb.client.result.UpdateResult;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
-public class InventoryAvailiblityQuery {
+public class InventoryQuery {
 
 	@Autowired
-	MongoOperations mongoOperations;
+	private MongoOperations mongoOperations;
+
+	@Autowired
+	private MongoTemplate mongoTemplate;
 
 	public static final String COLLECTION_NAME = "Inventory";
 
@@ -43,6 +53,21 @@ public class InventoryAvailiblityQuery {
 		List<Inventory> inventoryList = results.getMappedResults();
 		log.info("Inventory query result: " + inventoryList);
 		return inventoryList;
+
+	}
+
+	public UpdateResult updateItemQuantityAfterOrder(String productId, String supplierId, Integer quantity) {
+		Query select = Query.query(Criteria.where("productId").is("productId"));
+
+		select.addCriteria(Criteria.where("supplier.id").is(supplierId));
+		Update update = new Update().set("supplier.$.quantity", quantity);
+
+		// return mongoTemplate.findAndModify(select, update, Inventory.class);
+
+		UpdateResult wr = mongoTemplate.updateMulti(
+				new Query(where("productId").is(productId)).addCriteria(where("supplier.id").is(supplierId)),
+				new Update().set("supplier.$.quantity", quantity), Inventory.class);
+		return wr;
 
 	}
 

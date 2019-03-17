@@ -2,13 +2,17 @@ package com.ecommerce.service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import org.mockito.exceptions.verification.NeverWantedButInvoked;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.ecommerce.api.model.request.InventoryDTO;
@@ -60,32 +64,49 @@ public class OrderService {
 			// Items added to order but not existing in inventory
 			if (availableProducts.size() < orderDTO.getProduct().size()) {
 
-				throw new Exception();
+				throw new Exception("One of the item is not available in stock");
 			}
 
 			else {
-				Map<String, Supplier> map = validateAndFilterProductAvailability(availableProducts, orderDTO);
-				log.info("map: "+ map);
+				// validate and filter product object
+				Map<Inventory, Supplier> map = validateAndFilterProductAvailability(availableProducts, orderDTO);
+				log.info("map: " + map);
+
+				// Call builder method to construct Order object
+				CompletableFuture<Order> newOrder = buildOrder(map, orderDTO);
+
+				// Call UpdateInventoryMethod
+				List<Inventory> updateInventory = new ArrayList<>();
+
+				Map<String, Integer> map2 = orderDTO.getProduct().stream()
+						.collect(Collectors.toMap(Product::getName, Product::getQuantity));
+
+				map.forEach((producer, supplier) -> {
+
+					Inventory i = new Inventory();
+					i.setProductId(producer.getProductId());
+
+					List<Supplier> supplierList = new ArrayList<>();
+					Supplier s = new Supplier();
+					s.setId(supplier.getId());
+					s.setQuantity(map.get(producer).getQuantity() - map2.get(producer.getProductName()));
+					supplierList.add(s);
+
+					i.setSupplier(supplierList);
+
+					updateInventory.add(i);
+
+				});
+
+				CompletableFuture<Boolean> updateInventoryFuture = inventoryService
+						.updateInventoryQuantity(updateInventory);
+
+				newOrder.get();
+				updateInventoryFuture.get();
+
+				orderRepository.save(newOrder.get());
 
 			}
-
-			// Items exists in Inventory but it's currently unavailable i.e. quantity is < 0
-			// availableProducts.parallelStream().filter(product ->
-			// product.getTotalQuantity()>0).
-
-			// Check if item is available
-
-			// Method call
-			// if (productItem.getTotalQuantity() > 0) {
-			//
-			// // Sort based on Supplier's lowest price and highest quantity: For
-			// availibility
-			// productItem.getSupplier().sort(inventorySortComparator.sortByPriceAndQuantity());
-			// log.info("productItem" + productItem);
-			//
-			// // Build Order object
-			//
-			// }
 
 		}
 		return null;
@@ -98,14 +119,12 @@ public class OrderService {
 
 	}
 
-	private Map<String, Supplier> validateAndFilterProductAvailability(List<Inventory> products, OrderDTO orderDTO) {
+	private Map<Inventory, Supplier> validateAndFilterProductAvailability(List<Inventory> products, OrderDTO orderDTO) {
 
 		Map<String, Integer> map = orderDTO.getProduct().stream()
 				.collect(Collectors.toMap(Product::getName, Product::getQuantity));
 
-		Map<String, Supplier> supplierMap = new HashMap<>();
-
-		// Check -1 total quantity
+		Map<Inventory, Supplier> supplierMap = new HashMap<>();
 
 		products.parallelStream().forEach(product -> {
 
@@ -115,20 +134,17 @@ public class OrderService {
 			if (product.getTotalQuantity() >= quantityRequired) {
 
 				// Sort the list of supplier based on lowest price and more number of quantities
-
 				product.getSupplier().sort(inventorySortComparator.sortByPriceAndQuantity());
 
+				// Fetching the appropriate supplier
 				product.getSupplier().parallelStream().forEach(supplier -> {
-
 					if (supplier.getQuantity() >= quantityRequired) {
-						supplierMap.put(product.getProductName(), supplier);
+
+						supplierMap.put(product, supplier);
 					}
 				});
-
 			}
-
 		});
-
 		return supplierMap;
 
 	}
@@ -138,16 +154,59 @@ public class OrderService {
 	//
 	// }
 	//
-	// private Order buildOrder(OrderDTO orderDTO, Inventory item) {
-	//
-	// Order newOrder = new Order();
-	// newOrder.setOrderId(idGenerator.randomString(IdEnum.OR.toString()));
-	// newOrder.setName(orderDTO.getProduct().getName());
-	// newOrder.setStatus(OrderStatus.PLACED);
-	// newOrder.setCreatedOn(LocalDateTime.now());
-	//
-	// return null;
-	//
-	// }
+	@Async("threadPoolTaskExecutor")
+	private CompletableFuture<Order> buildOrder(Map<Inventory, Supplier> availableProducts, OrderDTO orderDTO) {
+
+		Map<String, Integer> productQuantityMap = orderDTO.getProduct().stream()
+				.collect(Collectors.toMap(Product::getName, Product::getQuantity));
+
+		Double totalAmount[] = { 0.0 };
+		Integer totalQuantity[] = { 0 };
+		StringBuilder orderName = new StringBuilder();
+
+		Order newOrder = new Order();
+		newOrder.setOrderId(idGenerator.randomString(IdEnum.OR.toString()));
+		newOrder.setStatus(OrderStatus.PLACED);
+		newOrder.setCreatedOn(LocalDateTime.now());
+
+		List<Inventory> productOrdered = new ArrayList<>();
+
+		// Calculate total amount from the supplier- inventory
+		availableProducts.forEach((product, supplier) -> {
+
+			Integer productQuantity = productQuantityMap.get(product.getProductName());
+
+			totalAmount[0] = totalAmount[0] + (supplier.getPrice() * productQuantity);
+
+			orderName.append(product.getProductName() + " and ");
+
+			Inventory i = product;
+
+			List<Supplier> s = new ArrayList<>();
+			s.add(supplier);
+			i.setSupplier(s);
+			productOrdered.add(i);
+		});
+		newOrder.setName(orderName.toString());
+
+		newOrder.setProducts(productOrdered);
+
+		// calculate total order quantity
+		orderDTO.getProduct().stream().forEach(product -> {
+			totalQuantity[0] = totalQuantity[0] + product.getQuantity();
+		});
+
+		newOrder.setTotalAmount(totalAmount[0]);
+		newOrder.setTotalQuantity(totalQuantity[0]);
+
+		log.info("Order object to be saved: " + newOrder);
+
+		return CompletableFuture.completedFuture(newOrder);
+
+	}
+
+	public List<Order> getAllOrders() {
+		return orderRepository.findAll();
+	}
 
 }

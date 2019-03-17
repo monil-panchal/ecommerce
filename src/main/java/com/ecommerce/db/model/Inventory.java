@@ -6,6 +6,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,12 +27,12 @@ public class Inventory {
 	private String productId;
 	private String productName;
 	private String description;
-	private Double price;
 	private String[] tags;
 	private String category;
 	private List<Supplier> supplier;
 
 	@Transient
+	@JsonIgnore
 	public Integer getTotalQuantity() {
 		return this.getSupplier().stream().filter(supplier -> supplier.getQuantity() > 0)
 				.mapToInt(Supplier::getQuantity).sum();

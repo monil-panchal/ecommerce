@@ -25,6 +25,11 @@ public class OrderController {
 	@Autowired
 	private OrderService orderService;
 
+	@GetMapping
+	public ResponseEntity<?> getOrders() {
+		return new ResponseEntity<>(orderService.getAllOrders(), HttpStatus.OK);
+	}
+
 	@PostMapping()
 	public ResponseEntity<?> createOrder(@Valid @RequestBody OrderDTO orderDTO) throws Exception {
 		log.info("Creating the order");
