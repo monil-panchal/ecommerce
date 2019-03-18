@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.mockito.exceptions.verification.NeverWantedButInvoked;
@@ -49,9 +50,6 @@ public class OrderService {
 
 	public Order createOrder(OrderDTO orderDTO) throws Exception {
 
-		Inventory productItem = null;
-		// Order newOrder = (Order) ModelMapperUtil.map(orderDTO, Order.class);
-
 		List<String> productsToOrder = orderDTO.getProduct().stream().map(Product::getName)
 				.collect(Collectors.toList());
 
@@ -62,73 +60,88 @@ public class OrderService {
 			List<Inventory> availableProducts = products.get();
 
 			// Items added to order but not existing in inventory
-			if (availableProducts.size() < orderDTO.getProduct().size()) {
 
-				throw new Exception("One of the item is not available in stock");
-			}
+			// validate and filter product object
+			Map<Inventory, Supplier> map = validateAndFilterProductAvailability(availableProducts, orderDTO);
 
-			else {
-				// validate and filter product object
-				Map<Inventory, Supplier> map = validateAndFilterProductAvailability(availableProducts, orderDTO);
-				log.info("map: " + map);
+			// Call builder method to construct Order object
+			CompletableFuture<Order> newOrder = buildOrder(map, orderDTO);
 
-				// Call builder method to construct Order object
-				CompletableFuture<Order> newOrder = buildOrder(map, orderDTO);
+			// Call UpdateInventoryMethod
+			List<Inventory> updateInventory = new ArrayList<>();
 
-				// Call UpdateInventoryMethod
-				List<Inventory> updateInventory = new ArrayList<>();
+			Map<String, Integer> map2 = orderDTO.getProduct().stream()
+					.collect(Collectors.toMap(Product::getName, Product::getQuantity));
 
-				Map<String, Integer> map2 = orderDTO.getProduct().stream()
-						.collect(Collectors.toMap(Product::getName, Product::getQuantity));
+			map.forEach((producer, supplier) -> {
 
-				map.forEach((producer, supplier) -> {
+				Inventory i = new Inventory();
+				i.setProductId(producer.getProductId());
 
-					Inventory i = new Inventory();
-					i.setProductId(producer.getProductId());
+				List<Supplier> supplierList = new ArrayList<>();
+				Supplier s = new Supplier();
+				s.setId(supplier.getId());
+				s.setQuantity(map.get(producer).getQuantity() - map2.get(producer.getProductName()));
+				supplierList.add(s);
 
-					List<Supplier> supplierList = new ArrayList<>();
-					Supplier s = new Supplier();
-					s.setId(supplier.getId());
-					s.setQuantity(map.get(producer).getQuantity() - map2.get(producer.getProductName()));
-					supplierList.add(s);
+				i.setSupplier(supplierList);
 
-					i.setSupplier(supplierList);
+				updateInventory.add(i);
 
-					updateInventory.add(i);
+			});
 
-				});
+			CompletableFuture<Boolean> updateInventoryFuture = inventoryService
+					.updateInventoryQuantity(updateInventory);
 
-				CompletableFuture<Boolean> updateInventoryFuture = inventoryService
-						.updateInventoryQuantity(updateInventory);
+			newOrder.get();
+			updateInventoryFuture.get();
 
-				newOrder.get();
-				updateInventoryFuture.get();
-
-				orderRepository.save(newOrder.get());
-
-			}
+			orderRepository.save(newOrder.get());
 
 		}
+
 		return null;
-
-		// else
-		// throw new Exception("Product: " + orderDTO.getProduct().getName() + " not
-		// found");
-
-		// return orderRepository.save(newOrder);
 
 	}
 
-	private Map<Inventory, Supplier> validateAndFilterProductAvailability(List<Inventory> products, OrderDTO orderDTO) {
+	private Map<Inventory, Supplier> validateAndFilterProductAvailability(List<Inventory> products, OrderDTO orderDTO)
+			throws Exception {
 
-		Map<String, Integer> map = orderDTO.getProduct().stream()
+		log.info("products: " + products);
+
+		Map<String, Integer> productQuantityMap = orderDTO.getProduct().stream()
 				.collect(Collectors.toMap(Product::getName, Product::getQuantity));
+
+		Map<String, Integer> unavailabeProductMap = new HashMap<>();
+
+		List<String> productsToOrder = productQuantityMap.keySet().stream().collect(Collectors.toList());
+
+		if (products.isEmpty()) {
+
+			throw new Exception(
+					"Following items do not exists in Inventory. Please try providing correct product name. "
+							+ products);
+		}
+
+		else if (products.size() < orderDTO.getProduct().size()) {
+
+			List<String> productNameList = products.stream().map(product -> product.getProductName())
+					.collect(Collectors.toList());
+
+			orderDTO.getProduct().removeIf(product -> !productNameList.contains(product.getName()));
+
+			productsToOrder = orderDTO.getProduct().stream().map(Product::getName).collect(Collectors.toList());
+
+			throw new Exception(
+					"Following items do not exists in Inventory. Please try providing correct product name. "
+							+ productsToOrder);
+		}
 
 		Map<Inventory, Supplier> supplierMap = new HashMap<>();
 
 		products.parallelStream().forEach(product -> {
 
-			Integer quantityRequired = map.get(product.getProductName());
+			Integer quantityRequired = productQuantityMap.get(product.getProductName());
 
 			// Check total quantity
 			if (product.getTotalQuantity() >= quantityRequired) {
@@ -139,12 +152,32 @@ public class OrderService {
 				// Fetching the appropriate supplier
 				product.getSupplier().parallelStream().forEach(supplier -> {
 					if (supplier.getQuantity() >= quantityRequired) {
+						product.setSupplier(null);
 
 						supplierMap.put(product, supplier);
 					}
 				});
 			}
+
+			else {
+				unavailabeProductMap.put(product.getProductName(), product.getTotalQuantity());
+
+			}
+
 		});
+
+		// construct error response
+		if (!unavailabeProductMap.isEmpty()) {
+
+			throw new Exception("Following products are currently not available in stock: "
+					+ unavailabeProductMap.keySet().stream().collect(Collectors.toList())
+					+ "Consider ordering lesser quantity or we'll inform once the product is back in stock. \n"
+					+ "Following items are available in stock. Try ordering them seperately."
+					+ supplierMap.keySet().stream().map(Inventory::getProductName).collect(Collectors.toList()));
+		}
+
+		log.info("supplierMap: " + supplierMap);
+
 		return supplierMap;
 
 	}

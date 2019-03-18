@@ -42,7 +42,7 @@ public class InventoryQuery {
 
 		Aggregation aggregation = Aggregation.newAggregation(Aggregation.unwind("$supplier"),
 				project("_id", "productName", "supplier", "productId", "description", "price", "tags", "category"),
-				match(where("productName").in(products)), match(where("supplier.quantity").gte(1)),
+				match(where("productName").in(products)),
 				group("_id", "productName", "productId", "description", "price", "tags", "category").push("supplier")
 						.as("supplier")
 
@@ -51,7 +51,6 @@ public class InventoryQuery {
 		AggregationResults<Inventory> results = mongoOperations.aggregate(aggregation, COLLECTION_NAME,
 				Inventory.class);
 		List<Inventory> inventoryList = results.getMappedResults();
-		log.info("Inventory query result: " + inventoryList);
 		return inventoryList;
 
 	}
