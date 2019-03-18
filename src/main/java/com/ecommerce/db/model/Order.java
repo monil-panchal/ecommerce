@@ -1,5 +1,6 @@
 package com.ecommerce.db.model;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
@@ -21,8 +22,12 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString
 @Document(collection = "Orders")
-public class Order {
+public class Order implements Serializable {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	@Id
 	private String _id;
 	private String orderId;

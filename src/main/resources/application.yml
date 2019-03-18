@@ -5,3 +5,14 @@ spring:
   data:
     mongodb.uri: mongodb+srv://EcommerceUser:EcommerceUser@cluster0-heq99.mongodb.net/test?retryWrites=true
     mongodb.database: test
+  rabbitmq:
+    host: llama.rmq.cloudamqp.com
+    port: 5672
+    virtual-host: zpjjhcxw
+    username: zpjjhcxw
+    password: LENFH-qNIl5dnc-2LBcoNqSBvjJPbYM-
+ecommerce:
+  rabbitmq:
+    exchange: ecomm.order.exchange
+    routingkey: ecomm.order.routingkey
+    queue: ecomm.order.queue

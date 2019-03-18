@@ -1,5 +1,6 @@
 package com.ecommerce.db.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
@@ -20,8 +21,12 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString
 @Document(collection = "Inventory")
-public class Inventory {
+public class Inventory implements Serializable {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	@Id
 	private String _id;
 	private String productId;
@@ -44,15 +49,18 @@ public class Inventory {
 	@NoArgsConstructor
 	@AllArgsConstructor
 	@ToString
-	public static class Supplier {
+	public static class Supplier implements Serializable  {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private String id;
 		private String name;
 		private String contactName;
 		private String description;
 		private Long phoneNumber;
 		private Double price;
-		private Double discountedPrice;
 		private Integer quantity;
 
 	}
