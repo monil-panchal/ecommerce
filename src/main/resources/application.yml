@@ -16,3 +16,12 @@ ecommerce:
     exchange: ecomm.order.exchange
     routingkey: ecomm.order.routingkey
     queue: ecomm.order.queue
+app:
+  response:
+    error:
+      message:
+        product.not.available: One of the product is not available in our inventory.
+        product.outof.stock: One of the product is out of stock.
+    success:
+      message:
+        order.placed: Your order has been placed successfully

@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.ecommerce.db.model.Order;
+
 @Component
 public class RabbitMqProducer {
 
@@ -17,8 +19,8 @@ public class RabbitMqProducer {
 	@Value("${ecommerce.rabbitmq.routingkey}")
 	private String routingKey;
 
-	public void produceMsg(Object message) {
-		amqpTemplate.convertAndSend(exchange, routingKey, message.toString());
+	public void produceMsg(Order message) {
+		amqpTemplate.convertAndSend(exchange, routingKey, message);
 		System.out.println("Send msg = " + message);
 	}
 

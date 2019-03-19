@@ -33,8 +33,8 @@ public class Order implements Serializable {
 	private String orderId;
 	private String name;
 	private OrderStatus status;
-	private LocalDateTime createdOn;
-	private LocalDateTime modifiedOn;
+	private Date createdOn;
+	private Date modifiedOn;
 	private Double totalAmount;
 	private Integer totalQuantity;
 

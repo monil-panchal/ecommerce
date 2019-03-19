@@ -3,6 +3,7 @@ package com.ecommerce.api.model.request;
 import java.time.LocalDate;
 import java.util.List;
 
+import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -24,10 +25,10 @@ import lombok.ToString;
 @NoArgsConstructor
 public class OrderDTO {
 
-	@NotNull
+	@Valid
 	private User user;
 
-	@NotNull
+	@Valid
 	private List<Product> product;
 
 	@Setter
@@ -56,7 +57,7 @@ public class OrderDTO {
 	public static class Product {
 		@NotBlank
 		private String name;
-		@Min(value = 1, message = "Minimum quantity should be 1")
+		@Min(value = 1, message = "Minimum quantity for the product should be 1")
 		private Integer quantity;
 
 	}

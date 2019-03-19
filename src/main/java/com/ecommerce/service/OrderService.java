@@ -2,6 +2,7 @@ package com.ecommerce.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ import com.ecommerce.db.model.Inventory;
 import com.ecommerce.db.model.Inventory.Supplier;
 import com.ecommerce.db.model.Order;
 import com.ecommerce.db.repository.OrderRepository;
+import com.ecommerce.exception.ProductNotAvailableException;
+import com.ecommerce.exception.ProductOutOfStockException;
 import com.ecommerce.rabbitmq.RabbitMqProducer;
 import com.ecommerce.util.IdEnum;
 import com.ecommerce.util.IdGenerator;
@@ -48,6 +51,8 @@ public class OrderService {
 
 	public Order createOrder(OrderDTO orderDTO) throws Exception {
 
+		Order generatedOrder = null;
+
 		List<String> productsToOrder = orderDTO.getProduct().stream().map(Product::getName)
 				.collect(Collectors.toList());
 
@@ -65,27 +70,28 @@ public class OrderService {
 			CompletableFuture<Order> newOrder = buildOrder(inventoryAvailableMap, orderDTO);
 
 			// Call UpdateInventoryMethod
-			List<Inventory> updateInventory = new ArrayList<>();
-
-			Map<String, Integer> map2 = orderDTO.getProduct().stream()
-					.collect(Collectors.toMap(Product::getName, Product::getQuantity));
-
-			inventoryAvailableMap.forEach((producer, supplier) -> {
-
-				Inventory i = new Inventory();
-				i.setProductId(producer.getProductId());
-
-				List<Supplier> supplierList = new ArrayList<>();
-				Supplier s = new Supplier();
-				s.setId(supplier.getId());
-				s.setQuantity(inventoryAvailableMap.get(producer).getQuantity() - map2.get(producer.getProductName()));
-				supplierList.add(s);
-
-				i.setSupplier(supplierList);
-
-				updateInventory.add(i);
-
-			});
+			// List<Inventory> updateInventory = new ArrayList<>();
+			//
+			// Map<String, Integer> map2 = orderDTO.getProduct().stream()
+			// .collect(Collectors.toMap(Product::getName, Product::getQuantity));
+			//
+			// inventoryAvailableMap.forEach((producer, supplier) -> {
+			//
+			// Inventory i = new Inventory();
+			// i.setProductId(producer.getProductId());
+			//
+			// List<Supplier> supplierList = new ArrayList<>();
+			// Supplier s = new Supplier();
+			// s.setId(supplier.getId());
+			// s.setQuantity(inventoryAvailableMap.get(producer).getQuantity() -
+			// map2.get(producer.getProductName()));
+			// supplierList.add(s);
+			//
+			// i.setSupplier(supplierList);
+			//
+			// updateInventory.add(i);
+			//
+			// });
 			//
 			// CompletableFuture<Boolean> updateInventoryFuture = inventoryService
 			// .updateInventoryQuantity(updateInventory);
@@ -94,11 +100,11 @@ public class OrderService {
 			rabbitMqProducer.produceMsg(newOrder.get());
 			// updateInventoryFuture.get();
 
-			orderRepository.save(newOrder.get());
+			generatedOrder = orderRepository.save(newOrder.get());
 
 		}
 
-		return null;
+		return generatedOrder;
 
 	}
 
@@ -113,23 +119,25 @@ public class OrderService {
 		Map<Inventory, Supplier> supplierMap = new HashMap<>();
 		List<String> productsToOrder = productQuantityMap.keySet().stream().collect(Collectors.toList());
 
-		if (products.isEmpty()) {
-			throw new Exception(
-					"Following items do not exists in Inventory. Please try providing correct product name. "
-							+ products);
-		} else if (products.size() < orderDTO.getProduct().size()) {
-			List<String> productNameList = products.stream().map(product -> product.getProductName())
-					.collect(Collectors.toList());
-			orderDTO.getProduct().removeIf(product -> !productNameList.contains(product.getName()));
-			productsToOrder = orderDTO.getProduct().stream().map(Product::getName).collect(Collectors.toList());
-			throw new Exception(
+		if (products.size() < orderDTO.getProduct().size()) {
+
+			if (!(products.isEmpty())) {
+				List<String> productNameList = products.stream().map(product -> product.getProductName())
+						.collect(Collectors.toList());
+				orderDTO.getProduct().removeIf(product -> productNameList.contains(product.getName()));
+				productsToOrder = orderDTO.getProduct().stream().map(Product::getName).collect(Collectors.toList());
+			}
+
+			throw new ProductNotAvailableException(
 					"Following items do not exists in Inventory. Please try providing correct product name. "
 							+ productsToOrder);
 		}
 
-		products.parallelStream().forEach(product -> {
+		products.stream().forEach(product -> {
 			Integer quantityRequired = productQuantityMap.get(product.getProductName());
 
+			log.info("product total quantity: " + product.getTotalQuantity());
+			log.info("quantityRequired: " + quantityRequired);
 			// Check total quantity
 			if (product.getTotalQuantity() >= quantityRequired) {
 
@@ -139,7 +147,6 @@ public class OrderService {
 				// This is a custom logic set. This will ensure the product which is available
 				// at a lower price and is sufficiently available will be picked for the order.
 
-				//
 				product.getSupplier().sort(inventorySortComparator.sortByPriceAndQuantity());
 
 				// Fetching the appropriate supplier
@@ -158,7 +165,7 @@ public class OrderService {
 		// construct error response
 		if (!unavailabeProductMap.isEmpty()) {
 
-			throw new Exception(
+			throw new ProductOutOfStockException(
 					"Following products:" + unavailabeProductMap.keySet().stream().collect(Collectors.toList())
 							+ " are currently not available in stock. "
 							+ "Consider ordering lesser quantity or we'll inform once the product is back in stock."
@@ -185,7 +192,7 @@ public class OrderService {
 		Order newOrder = new Order();
 		newOrder.setOrderId(idGenerator.randomString(IdEnum.OR.toString()));
 		newOrder.setStatus(OrderStatus.PLACED);
-		newOrder.setCreatedOn(LocalDateTime.now());
+		newOrder.setCreatedOn(new Date());
 
 		List<Inventory> productOrdered = new ArrayList<>();
 
@@ -201,6 +208,7 @@ public class OrderService {
 			Inventory i = product;
 
 			List<Supplier> s = new ArrayList<>();
+			supplier.setQuantity(productQuantityMap.get(product.getProductName()));
 			s.add(supplier);
 			i.setSupplier(s);
 			productOrdered.add(i);
