@@ -1,12 +1,16 @@
 # scheduler-svc
 
-## Prerequirements
+## Tech stack
     1. Oracle JDK 1.8+
     2. Maven 3.3.9
+    3. RabbitMQ
+    4. MongoDB
+    
 
 ## Build and and Run application
     1. Build project: mvn clean install
     2. Run spring boot service: mvn spring-boot:run
+    3. MongoDB and RabbitMQ are configured on the cloud. No need to set it up in local
 
 ## Endpoints
 
@@ -19,10 +23,6 @@ http://localhost:9090/ecommerce/actuator/health
 # Swagger UI
 http://localhost:9090/ecommerce/swagger-ui.html
 
-METHOD - POST
-    1. /setPreferences
-
-##########################################################
 
 # How to place an order
 
@@ -57,12 +57,19 @@ The consumer for this message(order generated is the updateInventoryQuantityForS
 After the inventory is updated, the order is saved in the DB
 (This ensures even if there are multiple orders for the same product at the same time, the asynchronous event driven function will handle the race condition for the quantities)
 
+
+Since the inventory is first updated based on the newly generated order and then it's saved, this will handle the race condition. Asynchronous event driven approach will ensure the inventory is updated as soon as the order is generated.
+
+*** alternate way of handling race condition - Java concurrency approach ***
+
+Ideal way to handle this would be using ReadWriteLock on the inventory method which is updating the inventory object.
+Another way is to make the Inventory object Immutable
 	
 
 
 # Please note
 
-I've tried to focus more on Ordering and inventory functionality. Due to time crunch, Users and account binding is not completed
+I've tried to focus more on Ordering and inventory functionality. Due to time crunch, Users/account binding is not completed
 
 
 

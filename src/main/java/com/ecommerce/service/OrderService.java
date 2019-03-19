@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.ui.ModelMap;
 
 import com.ecommerce.api.model.request.OrderDTO;
 import com.ecommerce.api.model.request.OrderDTO.Product;
@@ -69,12 +68,30 @@ public class OrderService {
 				orderDTO);
 
 		// Call builder method to construct Order object
-		CompletableFuture<Order> newOrder = buildOrder(inventoryAvailableMap, orderDTO);
+		CompletableFuture<Order> newOrderFuture = buildOrder(inventoryAvailableMap, orderDTO);
+		Order newOrder = newOrderFuture.get();
 
-		newOrder.get();
-		rabbitMqProducer.produceMsg(newOrder.get());
+		// Publishing the newly generated Order to RabbitMq queue.
 
-		generatedOrder = orderRepository.save(newOrder.get());
+		// The listener for this message is inventory update method in InventoryService
+		// which will update the quantity of products accordingly.
+		rabbitMqProducer.produceMsg(newOrder);
+
+		// ****** Handling race condition while generating an order and updating the
+		// inventory ********
+
+		// Since the inventory is first updated based on the newly generated order and
+		// then it's saved, this will handle the race condition. Asynchronous event
+		// driven approach will ensure the inventory is updated as soon as the order is
+		// generated.
+
+		// *** alternate way of handling race condition - Java concurrency approach
+
+		// Ideal way to handle this would be using ReadWriteLock on the inventory method
+		// which is updating the inventory object.
+
+		// Another way is to make the Inventory object Immutable
+		generatedOrder = orderRepository.save(newOrder);
 
 		return generatedOrder;
 
