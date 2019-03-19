@@ -1,4 +1,5 @@
-# scheduler-svc
+# Ecommerce spring boot application.
+Contains order and inventory functionality
 
 ## Tech stack
     1. Oracle JDK 1.8+
