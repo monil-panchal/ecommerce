@@ -29,6 +29,30 @@ http://localhost:9090/ecommerce/swagger-ui.html
 
 1. Hit the inventory endpoint to get product details: GET http://localhost:9090/ecommerce/inventory
 2. Copy the name of the product(s)(field: productName) you want to order.
+	Sample: 
+	```
+	{
+	"user":{
+		"name":"monil",
+		"phoneNumber": 9998788448,
+		"email": "monil@gmail.com",
+		"address": {
+			"addressLine1": "185"
+		}
+	},
+	"product": [
+
+	{
+		"name": "Apple iPhone 8 (64GB) - Gold",
+		"quantity": 2
+	},
+		{
+		"name": "OnePlus 6T (Midnight Black, 8GB RAM, 256GB Storage)",
+		"quantity": 2
+	}
+		]
+}
+	```
 3. Construct order request payload. Sample request can be found at: http://localhost:9090/ecommerce/swagger-ui.html#/order-controller/createOrderUsingPOST
 
 One or more product can be passed in "product" list. 
@@ -71,7 +95,9 @@ Another way is to make the Inventory object Immutable
 
 # Please note
 
-I've tried to focus more on Ordering and inventory functionality. Due to time crunch, Users/account binding is not completed
+Due to time crunch, the following functionalities couldn't be implemented:
+1.  Users/account binding. The current application is user agonistic
+2. Junits. Since there is an integration with Rabbit MQ, Intergration test of create Order couldn't be done due to rabbit mq test dependencies
 
 
 
