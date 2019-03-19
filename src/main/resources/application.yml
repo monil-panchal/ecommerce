@@ -11,6 +11,8 @@ spring:
     virtual-host: zpjjhcxw
     username: zpjjhcxw
     password: LENFH-qNIl5dnc-2LBcoNqSBvjJPbYM-
+  jackson:
+    default-property-inclusion: NON_NULL
 ecommerce:
   rabbitmq:
     exchange: ecomm.order.exchange

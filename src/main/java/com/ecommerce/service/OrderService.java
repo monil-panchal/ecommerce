@@ -1,7 +1,7 @@
 package com.ecommerce.service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -13,9 +13,12 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
 
 import com.ecommerce.api.model.request.OrderDTO;
 import com.ecommerce.api.model.request.OrderDTO.Product;
+import com.ecommerce.api.model.request.OrderDTO.User;
+import com.ecommerce.db.model.Account;
 import com.ecommerce.db.model.Inventory;
 import com.ecommerce.db.model.Inventory.Supplier;
 import com.ecommerce.db.model.Order;
@@ -26,6 +29,7 @@ import com.ecommerce.rabbitmq.RabbitMqProducer;
 import com.ecommerce.util.IdEnum;
 import com.ecommerce.util.IdGenerator;
 import com.ecommerce.util.InventorySortComparator;
+import com.ecommerce.util.ModelMapperUtil;
 import com.ecommerce.util.OrderStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -58,51 +62,19 @@ public class OrderService {
 
 		// Query the DB for product availability
 		Optional<List<Inventory>> products = inventoryService.getAvailableProducts(productsToOrder);
+		List<Inventory> availableProducts = products.get();
 
-		if (products.isPresent()) {
-			List<Inventory> availableProducts = products.get();
+		// validate and filter product based on availability
+		Map<Inventory, Supplier> inventoryAvailableMap = validateAndFilterProductAvailability(availableProducts,
+				orderDTO);
 
-			// validate and filter product based on availability
-			Map<Inventory, Supplier> inventoryAvailableMap = validateAndFilterProductAvailability(availableProducts,
-					orderDTO);
+		// Call builder method to construct Order object
+		CompletableFuture<Order> newOrder = buildOrder(inventoryAvailableMap, orderDTO);
 
-			// Call builder method to construct Order object
-			CompletableFuture<Order> newOrder = buildOrder(inventoryAvailableMap, orderDTO);
+		newOrder.get();
+		rabbitMqProducer.produceMsg(newOrder.get());
 
-			// Call UpdateInventoryMethod
-			// List<Inventory> updateInventory = new ArrayList<>();
-			//
-			// Map<String, Integer> map2 = orderDTO.getProduct().stream()
-			// .collect(Collectors.toMap(Product::getName, Product::getQuantity));
-			//
-			// inventoryAvailableMap.forEach((producer, supplier) -> {
-			//
-			// Inventory i = new Inventory();
-			// i.setProductId(producer.getProductId());
-			//
-			// List<Supplier> supplierList = new ArrayList<>();
-			// Supplier s = new Supplier();
-			// s.setId(supplier.getId());
-			// s.setQuantity(inventoryAvailableMap.get(producer).getQuantity() -
-			// map2.get(producer.getProductName()));
-			// supplierList.add(s);
-			//
-			// i.setSupplier(supplierList);
-			//
-			// updateInventory.add(i);
-			//
-			// });
-			//
-			// CompletableFuture<Boolean> updateInventoryFuture = inventoryService
-			// .updateInventoryQuantity(updateInventory);
-
-			newOrder.get();
-			rabbitMqProducer.produceMsg(newOrder.get());
-			// updateInventoryFuture.get();
-
-			generatedOrder = orderRepository.save(newOrder.get());
-
-		}
+		generatedOrder = orderRepository.save(newOrder.get());
 
 		return generatedOrder;
 
@@ -224,6 +196,15 @@ public class OrderService {
 
 		newOrder.setTotalAmount(totalAmount[0]);
 		newOrder.setTotalQuantity(totalQuantity[0]);
+		User user = orderDTO.getUser();
+
+		Account.User userAccount = (com.ecommerce.db.model.Account.User) ModelMapperUtil.map(user, Account.User.class);
+		userAccount.setAddress(Arrays.asList(orderDTO.getUser().getAddress()));
+		Account account = new Account();
+
+		account.setUser(userAccount);
+
+		newOrder.setAccount(account);
 
 		log.info("Order object to be saved: " + newOrder);
 

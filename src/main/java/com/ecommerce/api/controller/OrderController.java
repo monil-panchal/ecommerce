@@ -4,10 +4,8 @@ import java.util.Date;
 
 import javax.validation.Valid;
 
-import org.mockito.exceptions.verification.NeverWantedButInvoked;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ecommerce.api.model.request.InventoryDTO;
 import com.ecommerce.api.model.request.OrderDTO;
 import com.ecommerce.api.model.response.SuccessResponse;
 import com.ecommerce.db.model.Order;

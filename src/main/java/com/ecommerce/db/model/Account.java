@@ -1,5 +1,6 @@
 package com.ecommerce.db.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -15,8 +16,12 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "Account")
-public class Account {
+public class Account implements Serializable {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private User user;
 	private UserCredential userCredential;
 	@DBRef
@@ -26,8 +31,12 @@ public class Account {
 	@Setter
 	@NoArgsConstructor
 	@AllArgsConstructor
-	public static class User {
+	public static class User implements Serializable {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private String name;
 		private String phoneNumber;
 		private String email;
@@ -38,8 +47,12 @@ public class Account {
 		@Setter
 		@NoArgsConstructor
 		@AllArgsConstructor
-		public static class Address {
+		public static class Address implements Serializable {
 
+			/**
+			 * 
+			 */
+			private static final long serialVersionUID = 1L;
 			private String addressLine1;
 			private String addressLine2;
 			private String landMark;

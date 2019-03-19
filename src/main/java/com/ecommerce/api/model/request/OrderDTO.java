@@ -1,14 +1,11 @@
 package com.ecommerce.api.model.request;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-
-import org.hibernate.validator.constraints.Range;
 
 import com.ecommerce.db.model.Account.User.Address;
 

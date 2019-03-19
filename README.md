@@ -3,60 +3,67 @@
 ## Prerequirements
     1. Oracle JDK 1.8+
     2. Maven 3.3.9
-    3. Mongo DB
 
 ## Build and and Run application
     1. Build project: mvn clean install
     2. Run spring boot service: mvn spring-boot:run
 
-## Run the application with active dev profile
-    Add -Dspring.profiles.active=dev to command line arguments when running Spring boot app.
-
-    Examples
-
-    1. ```java -jar -Dspring.profiles.active=dev target/ge-adm-service-1.0-SNAPSHOT.jar```
-    2. ```mvn spring-boot:run -Dspring.profiles.active=dev```
-
-
 ## Endpoints
 
-# Scheduler service Base URI
-http://localhost:8080/scheduler-api/v1
+# Ecommerce Base URI
+http://localhost:9090/ecommerce/
 
 # Health check
-http://localhost:8080/scheduler-api/v1/actuator/health
+http://localhost:9090/ecommerce/actuator/health
 
 # Swagger UI
-http://localhost:8080/scheduler-api/v1/swagger-ui.html
+http://localhost:9090/ecommerce/swagger-ui.html
 
 METHOD - POST
     1. /setPreferences
 
 ##########################################################
 
-Calendar Service
+# How to place an order
 
-In Calendar rest-controler, http method "generateTeachersAvailability" addresses to get the teachers
-availability.
+1. Hit the inventory endpoint to get product details: GET http://localhost:9090/ecommerce/inventory
+2. Copy the name of the product(s)(field: productName) you want to order.
+3. Construct order request payload. Sample request can be found at: http://localhost:9090/ecommerce/swagger-ui.html#/order-controller/createOrderUsingPOST
 
-The controller passes the required dto object to the service layer -> CalendarService -
- 'getTeachersAvailabilityForLearnerV2' method.
+One or more product can be passed in "product" list. 
 
-To get the teachers availability, we have implemented the schedule algorithm which gives the  teacher list with their
-available slots.
+# Succinct overview of create order workflow
 
-1. Get the learner's local-start date, local-end date, prefered day and slot.
-2. Apply the date operations on given start date and end date and find  the 22 days in between both the dates where
-day should be "prefered day".
-3. Convert the localDates to the zonedDateTime.
-4. Convert the zonedDateTime to UTC.
-5. query to the MongoDB, based of UTC - start and end dates, prefered UTC day, hour and miniute. the resultant list will
-   be the collection of Calendar object.
-6. Now, based on the each fetched teacher-id, call the platform API to get the teacher information(firstName, lastName)
-   note: here, platform api accepts list of teacherIDs. Hence, catch all the teacherIDs in the list and send the list object
-   as a request body to the platform-api.
-7. Now, append the teacher information to the response-dto.
-8. send back the response-Dto to the client.
+Create order is composed of 3 internal workflows
+1. Querying the DB for product availability.
+
+	This returns the details of products which the user wants to order.
+2. Validate and filter product based on availability.
+
+	Based on the list of available products, this validates and filter out the product based on the current quantity 	available with the supplier(Seller).
+	This step will handle most of the validations and scenarions(product not available, out of stock etc).
+	
+	#how a particular supplier(seller is selected)?
+	There is a custom logic implemented(this surely depends on the business requirement) where the seller with lowest price 	for the product and highest available quantity is picked for the order generation(Since order request doesn't explicitly 	specify which seller to choose and at which price)
+
+	#Reason why this is implemented is to ensure the user gets the product at best available price can order multiple 		quantities if it's available with the seller.
+	
+3. Order generation 
+	More of a Order object generation step which aggregates details from the request payload and calculates total quantity and total amount for the order.
+	
+Once the order is generated, it is pushed to RabbitMq queue.
+The consumer for this message(order generated is the updateInventoryQuantityForSuccessfulOrder() method of Inventory service which ensures the quantity after the order is generated is accurately modified.
+
+After the inventory is updated, the order is saved in the DB
+(This ensures even if there are multiple orders for the same product at the same time, the asynchronous event driven function will handle the race condition for the quantities)
+
+	
+
+
+# Please note
+
+I've tried to focus more on Ordering and inventory functionality. Due to time crunch, Users and account binding is not completed
+
 
 
 

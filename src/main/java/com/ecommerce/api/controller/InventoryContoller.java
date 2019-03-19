@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ecommerce.api.model.request.InventoryDTO;
 import com.ecommerce.service.InventoryService;
-import com.ecommerce.util.IdGenerator;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,12 +25,14 @@ public class InventoryContoller {
 	private InventoryService inventoryService;
 
 	@PostMapping
-	public ResponseEntity<?> createOrder(@Valid @RequestBody InventoryDTO inventoryDTO) {
+	public ResponseEntity<?> createInventory(@Valid @RequestBody InventoryDTO inventoryDTO) {
+		log.info("creating inventory");
 		return new ResponseEntity<>(inventoryService.addToInventory(inventoryDTO), HttpStatus.OK);
 	}
 
 	@GetMapping
 	public ResponseEntity<?> getInventory() {
+		log.info("getting inventory");
 		return new ResponseEntity<>(inventoryService.getInventory(), HttpStatus.OK);
 	}
 }
