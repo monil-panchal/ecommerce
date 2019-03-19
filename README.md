@@ -51,6 +51,7 @@ Create order is composed of 3 internal workflows
 3. Order generation 
 	More of a Order object generation step which aggregates details from the request payload and calculates total quantity and total amount for the order.
 	
+# Race condition 	
 Once the order is generated, it is pushed to RabbitMq queue.
 The consumer for this message(order generated is the updateInventoryQuantityForSuccessfulOrder() method of Inventory service which ensures the quantity after the order is generated is accurately modified.
 
