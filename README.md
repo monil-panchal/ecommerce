@@ -33,6 +33,8 @@ Construct order request payload. Sample request can be found at: http://localhos
 
 One or more product can be passed in "product" list. 
 
+#### Currently there are 10 items for each product for each supplier. In case if you run out of items while testing, let me know. I'll add them accordingly.
+
 # Succinct overview of create order workflow
 
 Create order is composed of 3 internal workflows
